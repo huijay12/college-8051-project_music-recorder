@@ -1,0 +1,216 @@
+C51 COMPILER V9.03   MAIN                                                                  06/22/2013 12:40:34 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN main.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE main.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg51.h"
+   2          
+   3          //************************************************************************** LCD
+   4          void Delay_100ms(void);
+   5          void delay_time(unsigned int k);
+   6          
+   7          void LCD_INIT(void);
+   8          void LCD_Data_In(char  LCD_WORD);                                                                                                                                                          
+   9          void  LCD_COMMAND(char temp);                                                                                                                           
+  10          void check_BF(void);                                                                                                                                               
+  11          void  LCD_Clear(void);                                                                                                            
+  12          void  LCD_Home(void);                                                                                                                                                             
+  13          void  LCD_ADDRESS(char row, char column);                                                                                         
+  14          void LCD_Display_String(char  *s1);
+  15          
+  16          // LCD 模組I/O的定義
+  17          sbit     RW  = P3^5;  // 直接接地
+  18          sbit     RS  = P3^7; 
+  19          sbit     E  = P3^6;  
+  20          #define  LCD_DATA   P2     // DB0-DB7  
+  21          
+  22          extern int xdata delaytime;                             
+  23          //************************************************************************** LCD
+  24          
+  25          //**************************************************************************鍵盤
+  26          #define Key_Port P0 // Port 0 接到      4x4 鍵盤
+  27          
+  28          // 定義4x4 鍵盤與數字的關係
+  29          #define Key_0 0
+  30          #define Key_1 1
+  31          #define Key_2 2
+  32          #define Key_3 3
+  33          #define Key_4 4
+  34          #define Key_5 5
+  35          #define Key_6 6
+  36          #define Key_7 7
+  37          #define Key_8 8
+  38          #define Key_9 9
+  39          #define Key_A 10
+  40          #define Key_B 11
+  41          #define Key_C 12
+  42          #define Key_D 13
+  43          #define Key_E 14
+  44          #define Key_F 15
+  45          
+  46          unsigned char key_current=0x0F; // 按鍵現在的狀態, 1: 正常 0:被按
+  47          unsigned char key_previous=0x0F; // 按鍵前10ms 的狀態, 1: 正常 0:被按              
+  48          unsigned int key_value=16;
+  49          unsigned char showBtn;
+  50          
+  51          
+  52          //**************************************************************************鍵盤
+  53          
+  54          //**************************************************************************聲音
+  55          sbit P1_7 = P1^7;
+C51 COMPILER V9.03   MAIN                                                                  06/22/2013 12:40:34 PAGE 2   
+
+  56          
+  57          #define  DO  65536 - 460800/523    //中音DO
+  58          #define  RE  65536 - 460800/587    //中音RE
+  59          #define  MI  65536 - 460800/659    //中音MI
+  60          #define  FA  65536 - 460800/698    //中音FA
+  61          #define  SO  65536 - 460800/785    //中音SO
+  62          #define  LA  65536 - 460800/880    //中音LA
+  63          #define  SI  65536 - 460800/998    //中音SI
+  64          #define  HDO  65536 - 460800/1048   //高音DO
+  65          #define  HRE  65536 - 460800/1176   //高音RE
+  66          #define  NON
+  67          
+  68          
+  69          //定義音階表
+  70          code unsigned int Table[] = {DO, RE, MI, FA, SO, LA, SI, HDO, HRE, NON};
+  71          unsigned int temp;
+  72          
+  73          
+  74          
+  75          //**************************************************************************聲音
+  76          
+  77          /**********************************************************************///功能函式
+  78          void mainMenu(void);
+  79          void record(void);        
+  80          void playAllRecord(void);
+  81          void playPart(void);
+  82          void delete(void);
+  83          /**********************************************************************///功能函式
+  84          
+  85          void delay_1ms(void);
+  86          
+  87          
+  88          xdata unsigned int i;
+  89          xdata unsigned int j;
+  90          xdata unsigned int k;
+  91          unsigned int func;
+  92          
+  93          xdata unsigned int recordSet[4][10];
+  94          xdata unsigned int recordQuan = 0;          //已記錄數目
+  95          xdata unsigned int recordLength[4] = {0, 0, 0, 0};          //各記錄的長度
+  96          
+  97          xdata int a = 0;                                 //第幾個記錄
+  98          xdata int b = 0;                                 //第幾個位置
+  99          
+ 100          
+ 101          
+ 102          void main(void){                  /*********************************************************///main
+ 103   1      
+ 104   1      //************鍵盤
+ 105   1      Key_Port = 0xFF; // Port1 接到4x4 鍵盤
+ 106   1      TMOD = 0x11; // Timer0(鍵盤) Timer1(聲音)    Mode1 設定
+ 107   1      TH0 = (65536-10000)/256; // 10ms 設定
+ 108   1      TL0 = (65536-10000)%256; // 10ms 設定
+ 109   1      
+ 110   1      EA = 1; // 致能所有中斷
+ 111   1      ET0 = 1; // 致能Timer0 中斷
+ 112   1      ET1 = 1;
+ 113   1      IP = 0x02;          //Timer0 高優先權
+ 114   1      //TR0 = 1; // 啟動Timer 0 計時
+ 115   1      
+ 116   1      //*************鍵盤
+ 117   1      
+C51 COMPILER V9.03   MAIN                                                                  06/22/2013 12:40:34 PAGE 3   
+
+ 118   1      
+ 119   1        while(1)
+ 120   1        {
+ 121   2      
+ 122   2      
+ 123   2         TH0 = (65536-10000)/256; // 10ms 設定
+ 124   2         TL0 = (65536-10000)%256; // 10ms 設定
+ 125   2      
+ 126   2         mainMenu();
+ 127   2      
+ 128   2         
+ 129   2         switch(key_value)
+ 130   2         {
+ 131   3         
+ 132   3                       case 10: 
+ 133   3      
+ 134   3                            record();
+ 135   3                                break;
+ 136   3         
+ 137   3                       case 11:
+ 138   3      
+ 139   3                                playAllRecord();
+ 140   3                                break;                                                                  
+ 141   3         
+ 142   3                       case 12:
+ 143   3      
+ 144   3                                playPart();
+ 145   3                            break;                                                                                                              
+ 146   3              
+ 147   3                      
+ 148   3                      case 13:
+ 149   3      
+ 150   3                               delete();
+ 151   3                           break;                                                                                              
+ 152   3                      
+ 153   3                      
+ 154   3                        
+ 155   3      
+ 156   3         }  /*****************************************///end switch
+ 157   2      
+ 158   2         key_value = 16;
+ 159   2         
+ 160   2       }  /***********************************************///end outer while
+ 161   1         
+ 162   1         }                             /*********************************************************///end main
+ 163          
+ 164          
+ 165          void T1_int(void) interrupt 3              // Timer1 計時中斷
+ 166          {
+ 167   1      
+ 168   1              TR1 = 0;
+ 169   1              TL1 = temp % 256;
+ 170   1              TH1 = temp / 256;
+ 171   1              TR1 = 1;
+ 172   1              P1_7 = !P1_7;
+ 173   1      //    P1_1 = 0;
+ 174   1      
+ 175   1      }
+ 176          
+ 177          
+ 178          void delay_1ms(void)
+ 179          {
+C51 COMPILER V9.03   MAIN                                                                  06/22/2013 12:40:34 PAGE 4   
+
+ 180   1                      unsigned char temp;
+ 181   1              unsigned int i;
+ 182   1      
+ 183   1                      for(i=0; i<60; i++)
+ 184   1                      temp=0;
+ 185   1                      
+ 186   1      
+ 187   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    112    ----
+   CONSTANT SIZE    =     18    ----
+   XDATA SIZE       =    100    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      9       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

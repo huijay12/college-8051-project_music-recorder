@@ -1,0 +1,188 @@
+C51 COMPILER V9.03   LCD                                                                   06/22/2013 12:40:34 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE LCD
+OBJECT MODULE PLACED IN lcd.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE lcd.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg51.h"
+   2          
+   3          //*********************************************************** LCD變數宣告
+   4          // LCD 模組I/O的定義
+   5          sbit     RW  = P3^5;  // 直接接地
+   6          sbit     RS  = P3^7; 
+   7          sbit     E  = P3^6;  
+   8          #define  LCD_DATA   P2     // DB0-DB7  
+   9          
+  10          //int xdata delaytime=100;                                                                        
+  11          //************************************************************LCD變數宣告
+  12          
+  13          //************************************************************LCD函式宣告
+  14          void Delay_100ms(void);
+  15          void delay_time(unsigned int k);
+  16          
+  17          void LCD_INIT(void);
+  18          void LCD_Data_In(char  LCD_WORD);                                                                                                                                                          
+  19          void  LCD_COMMAND(char temp);                                                                                                                           
+  20          void check_BF(void);                                                                                                                                               
+  21          void  LCD_Clear(void);                                                                                                            
+  22          void  LCD_Home(void);                                                                                                                                                             
+  23          void  LCD_ADDRESS(char row, char column);                                                                                         
+  24          void LCD_Display_String(char  *s1);
+  25          //************************************************************LCD函式宣告                                                
+  26          
+  27          #define Key_Port P0 // Port 3 接到      4x4 鍵盤
+  28          
+  29          
+  30          void LCD_INIT (void){
+  31   1        int i;
+  32   1      
+  33   1       LCD_Clear();                 //清除LCD顯示RAM
+  34   1       LCD_Home();                  //LCD游標歸位
+  35   1      
+  36   1      // LCD Initialization
+  37   1           LCD_COMMAND(0x30);     // 重置 LCD
+  38   1           LCD_COMMAND(0X01);     // 清除LCD顯示RAM
+  39   1      
+  40   1            E=0;
+  41   1            delay_time(100);
+  42   1      
+  43   1           for(i=0;i<10;i++)      //  設定延遲時間
+  44   1              delay_time(100);
+  45   1               
+  46   1          LCD_COMMAND(0x3f);    // 設定LCD為兩列 ,資料為8bits, 5*7字型 
+  47   1           
+  48   1          //  LCD_COMMAND(0x0f);        // 有游標 會閃爍
+  49   1          LCD_COMMAND(0x0c);            // 無游標 不會閃爍
+  50   1          // LCD_COMMAND(0x0e);         // 有游標  不會閃爍
+  51   1           
+  52   1          LCD_COMMAND(0x06);            // 設定LCD自動增加模式
+  53   1      ////////////////////////////////////////////////////////////////////////
+  54   1        
+  55   1          LCD_Clear(); 
+C51 COMPILER V9.03   LCD                                                                   06/22/2013 12:40:34 PAGE 2   
+
+  56   1          LCD_Home(); 
+  57   1      
+  58   1      }
+  59          
+  60          
+  61          void Delay_100ms(void){
+  62   1      unsigned short kk;
+  63   1      
+  64   1        for (kk=0;kk<20000;kk++){
+  65   2        }
+  66   1      
+  67   1      } 
+  68            
+  69          void delay_time(unsigned int k)
+  70          {
+  71   1          while(k>0) k--;
+  72   1      }
+  73          
+  74          
+  75          //-------------------------------------------------------
+  76          //   設定 LCD Module 控制命令
+  77          //------------------------------------------------------- 
+  78          void  LCD_COMMAND(char temp)
+  79          {
+  80   1          RW=0;  
+  81   1          RS=0;                   // 設定存取命令暫存器
+  82   1          LCD_DATA=temp;          //  送出LCD命令字元 
+  83   1       
+  84   1          E=1;
+  85   1                   check_BF(); 
+  86   1              E = 0;
+  87   1      
+  88   1      }
+  89          
+  90          
+  91          //---------------------------------------------------
+  92          //     在LCD上顯示一個字元
+  93          //---------------------------------------------------
+  94          void LCD_Data_In(char  temp)
+  95          {
+  96   1          RW=0;  
+  97   1          RS=1;                   // 設定存取命令暫存器
+  98   1          LCD_DATA=temp;          //  送出LCD命令字元 
+  99   1           
+ 100   1          E=1;
+ 101   1                 check_BF();   
+ 102   1              E = 0;
+ 103   1      }
+ 104          
+ 105          void check_BF(void) {
+ 106   1          Delay_100ms();
+ 107   1              Delay_100ms();
+ 108   1      }
+ 109          
+ 110          //----------------------------------------------------
+ 111          //    清除LCD顯示RAM
+ 112          //----------------------------------------------------
+ 113          void LCD_Clear(void)
+ 114          {
+ 115   1          LCD_COMMAND(0x01);             
+ 116   1      }
+ 117          //----------------------------------------------------
+C51 COMPILER V9.03   LCD                                                                   06/22/2013 12:40:34 PAGE 3   
+
+ 118          //     LCD游標歸位
+ 119          //----------------------------------------------------
+ 120          void LCD_Home(void)
+ 121          {
+ 122   1          LCD_COMMAND(0x02);        
+ 123   1      }
+ 124          
+ 125          //----------------------------------------------------
+ 126          //         設定LCD游標位址
+ 127          //         列(row)    : 1,2
+ 128          //         行(column) : 1,16
+ 129          //----------------------------------------------------
+ 130          void  LCD_ADDRESS(char row, char column)
+ 131          {
+ 132   1           unsigned char  tmp1;
+ 133   1      
+ 134   1      //       16*2 LCD Module Address
+ 135   1      //  row_1=> 80 81 82 83 84 85 86 87 88 89 8a 8b 8c 8d 8e 8f
+ 136   1      //  row_2=> c0 c1 c2 c3 c4 c5 c6 c7 c8 c9 ca cb cc cd ce cf
+ 137   1      
+ 138   1             tmp1=(row-1)*0x40+(column-1)+0x80;
+ 139   1              //計算出LCD模組之游標相對應的位址
+ 140   1            
+ 141   1             LCD_COMMAND(tmp1);       // 設定 LCD 游標位址
+ 142   1             
+ 143   1       
+ 144   1      }
+ 145          
+ 146          //---------------------------------------------------
+ 147          //     在LCD上顯示一個字串
+ 148          //     Example: s1="LCD TEST\0";  
+ 149          //     字串終止符號為'\0'
+ 150          //---------------------------------------------------
+ 151          void LCD_Display_String(char  *s1)
+ 152          {
+ 153   1         unsigned char          i;
+ 154   1      
+ 155   1          for (i=0;i<50;i++){
+ 156   2               if (*(s1+i)=='\0') 
+ 157   2                      break;  //判斷字串是否已經傳送完畢
+ 158   2                      
+ 159   2               LCD_Data_In(*(s1+i)); 
+ 160   2          }
+ 161   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    209    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       6
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,437 @@
+C51 COMPILER V9.03   FUNCTION                                                              06/22/2013 12:40:34 PAGE 1   
+
+
+C51 COMPILER V9.03, COMPILATION OF MODULE FUNCTION
+OBJECT MODULE PLACED IN function.OBJ
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE function.c BROWSE DEBUG OBJECTEXTEND
+
+line level    source
+
+   1          #include "reg51.h"
+   2          
+   3          //************************************************************************** LCD
+   4          void Delay_100ms(void);
+   5          void delay_time(unsigned int k);
+   6          
+   7          void LCD_INIT(void);
+   8          void LCD_Data_In(char  LCD_WORD);                                                                                                                                                          
+   9          void  LCD_COMMAND(char temp);                                                                                                                           
+  10          void check_BF(void);                                                                                                                                               
+  11          void  LCD_Clear(void);                                                                                                            
+  12          void  LCD_Home(void);                                                                                                                                                             
+  13          void  LCD_ADDRESS(char row, char column);                                                                                         
+  14          void LCD_Display_String(char  *s1);
+  15          
+  16          // LCD 模組I/O的定義
+  17          sbit     RW  = P3^5;  // 直接接地
+  18          sbit     RS  = P3^7; 
+  19          sbit     E  = P3^6;  
+  20          #define  LCD_DATA   P2     // DB0-DB7  
+  21          
+  22          extern int xdata delaytime;                             
+  23          //************************************************************************** LCD
+  24          
+  25          //**************************************************************************鍵盤
+  26          #define Key_Port P0 // Port 0 接到      4x4 鍵盤
+  27          
+  28          // 定義4x4 鍵盤與數字的關係
+  29          #define Key_0 0
+  30          #define Key_1 1
+  31          #define Key_2 2
+  32          #define Key_3 3
+  33          #define Key_4 4
+  34          #define Key_5 5
+  35          #define Key_6 6
+  36          #define Key_7 7
+  37          #define Key_8 8
+  38          #define Key_9 9
+  39          #define Key_A 10
+  40          #define Key_B 11
+  41          #define Key_C 12
+  42          #define Key_D 13
+  43          #define Key_E 14
+  44          #define Key_F 15
+  45          
+  46          extern unsigned char key_current; // 按鍵現在的狀態, 1: 正常 0:被按
+  47          extern unsigned char key_previous; // 按鍵前10ms 的狀態, 1: 正常 0:被按            
+  48          extern unsigned int key_value;
+  49          extern unsigned char showBtn;
+  50          
+  51          
+  52          //**************************************************************************鍵盤
+  53          
+  54          //**************************************************************************聲音
+  55          sbit P1_7 = P1^7;
+C51 COMPILER V9.03   FUNCTION                                                              06/22/2013 12:40:34 PAGE 2   
+
+  56          
+  57          #define  DO  65536 - 460800/523    //中音DO
+  58          #define  RE  65536 - 460800/587    //中音RE
+  59          #define  MI  65536 - 460800/659    //中音MI
+  60          #define  FA  65536 - 460800/698    //中音FA
+  61          #define  SO  65536 - 460800/785    //中音SO
+  62          #define  LA  65536 - 460800/880    //中音LA
+  63          #define  SI  65536 - 460800/998    //中音SI
+  64          #define  HDO  65536 - 460800/1048   //高音DO
+  65          #define  HRE  65536 - 460800/1176   //高音RE
+  66          #define  NON
+  67          
+  68          
+  69          //定義音階表
+  70          extern code unsigned int Table[];
+  71          extern unsigned int temp;
+  72          
+  73          
+  74          
+  75          //**************************************************************************聲音
+  76          
+  77          void delay_1ms(void);
+  78          void mainMenu(void);
+  79          void record(void);
+  80          void playAllRecord(void);
+  81          void playPart(void);
+  82          void delete(void);
+  83          
+  84          
+  85          extern xdata unsigned int i;
+  86          extern xdata unsigned int j;
+  87          extern xdata unsigned int k;
+  88          extern unsigned int func;
+  89          
+  90          extern xdata unsigned int recordSet[4][10];
+  91          extern xdata unsigned int recordQuan;       //已記錄數目
+  92          extern xdata unsigned int recordLength[4];          //各記錄的長度
+  93          
+  94          extern xdata int a;                              //第幾個記錄
+  95          extern xdata int b;                              //第幾個位置
+  96          
+  97          
+  98          
+  99          void mainMenu(void)
+ 100          {
+ 101   1      
+ 102   1        LCD_INIT();
+ 103   1        LCD_Display_String("Select function\0");                      //"Select function"
+ 104   1        //LCD_Display_String(str1);
+ 105   1      
+ 106   1        TR0 = 1;
+ 107   1      
+ 108   1        while(1){
+ 109   2        
+ 110   2        if(key_value>9 && key_value<14)
+ 111   2        {
+ 112   3          TR0 = 0;
+ 113   3          break;
+ 114   3           }
+ 115   2      
+ 116   2        else continue;
+ 117   2        }                               
+C51 COMPILER V9.03   FUNCTION                                                              06/22/2013 12:40:34 PAGE 3   
+
+ 118   1      
+ 119   1      
+ 120   1       TH0 = (65536-10000)/256; // 10ms 設定
+ 121   1       TL0 = (65536-10000)%256; // 10ms 設定
+ 122   1      
+ 123   1      }
+ 124          
+ 125          
+ 126          
+ 127          
+ 128          
+ 129          
+ 130          void record(void)
+ 131          {
+ 132   1      
+ 133   1             LCD_INIT();
+ 134   1             LCD_Display_String("Recording...   \0");  //"Recording...  "
+ 135   1      
+ 136   1      
+ 137   1                key_value = 16;
+ 138   1      
+ 139   1      
+ 140   1                 while(1){
+ 141   2      
+ 142   2                    TR0 = 1;
+ 143   2      
+ 144   2                        while(1)
+ 145   2                        {
+ 146   3                        
+ 147   3                               if(key_value>0 && key_value<10)
+ 148   3                               {
+ 149   4                                      func = 1;
+ 150   4                                      TR0 = 0;
+ 151   4                                      break;
+ 152   4                                  }
+ 153   3                          
+ 154   3                   if(key_value == 15)                                                                // F鍵, 記錄結束
+ 155   3                               {
+ 156   4                                  func = 2;
+ 157   4                                      break;
+ 158   4                                 }
+ 159   3      
+ 160   3                          }                   //inner while
+ 161   2                 
+ 162   2                  for(i=0; i<200; i++)
+ 163   2                          delay_1ms();
+ 164   2      
+ 165   2      
+ 166   2      
+ 167   2                     if(func == 1)
+ 168   2                         {
+ 169   3                               
+ 170   3                      if(b == 10)
+ 171   3                                      {
+ 172   4                                         LCD_ADDRESS(2,1);
+ 173   4                                         LCD_Display_String("full!!        \0");
+ 174   4      
+ 175   4                                         for (i=0;i<1000;i++){
+ 176   5                            delay_1ms();
+ 177   5                            delay_1ms();
+ 178   5                            delay_1ms();
+ 179   5                             }
+C51 COMPILER V9.03   FUNCTION                                                              06/22/2013 12:40:34 PAGE 4   
+
+ 180   4      
+ 181   4                         func = 2;
+ 182   4      
+ 183   4                                        }//song 已滿    
+ 184   3      
+ 185   3                     else
+ 186   3                                 {
+ 187   4                                         recordSet[a][b] = key_value;
+ 188   4                                         
+ 189   4      
+ 190   4                                         LCD_ADDRESS(2,b+1);
+ 191   4                                         LCD_Data_In(showBtn);
+ 192   4      
+ 193   4                                         b++;       
+ 194   4                                 
+ 195   4                                     key_value = 16;
+ 196   4      
+ 197   4                                         for (i=0;i<100;i++){
+ 198   5                            delay_1ms();
+ 199   5                            delay_1ms();
+ 200   5                            delay_1ms();
+ 201   5                             }
+ 202   4                                    }
+ 203   3                         
+ 204   3                             }  
+ 205   2                   
+ 206   2                          if(func == 2)
+ 207   2                              {
+ 208   3      
+ 209   3                      LCD_INIT();
+ 210   3                                      LCD_Display_String("Record saved   \0");
+ 211   3      
+ 212   3                                      for (i=0;i<1000;i++){
+ 213   4                          delay_1ms();
+ 214   4                          delay_1ms();
+ 215   4                          delay_1ms();
+ 216   4                           }
+ 217   3      
+ 218   3      
+ 219   3                                 key_value = 16;
+ 220   3                                 recordQuan++;
+ 221   3                                 recordLength[a]= b-1;
+ 222   3                                 b = 0;
+ 223   3                                 a++;
+ 224   3                                 break;
+ 225   3                                 }
+ 226   2                 
+ 227   2                       TR0 = 0;
+ 228   2      
+ 229   2      
+ 230   2      
+ 231   2           }   /*************************************///end outer while
+ 232   1      
+ 233   1      }                /*******************************/// end record
+ 234          
+ 235          
+ 236          
+ 237          
+ 238          void playAllRecord(void)
+ 239          {
+ 240   1      
+ 241   1                  LCD_INIT();
+C51 COMPILER V9.03   FUNCTION                                                              06/22/2013 12:40:34 PAGE 5   
+
+ 242   1                      
+ 243   1      
+ 244   1                      if(recordQuan==0)                 
+ 245   1                                      {
+ 246   2                                        LCD_Display_String("No record!!");
+ 247   2      
+ 248   2                         for (i=0;i<1000;i++){
+ 249   3                            delay_1ms();
+ 250   3                            delay_1ms();
+ 251   3                            delay_1ms();
+ 252   3                             }
+ 253   2                       }
+ 254   1      
+ 255   1                                      else
+ 256   1                                      {
+ 257   2                                      LCD_Display_String("Playing records\0");            // play all records
+ 258   2      
+ 259   2                                  for(i=0; i<recordQuan; i++)                         
+ 260   2                                      {
+ 261   3                                         for(j=0; j<=recordLength[i]; j++)                    
+ 262   3                                         {
+ 263   4      
+ 264   4                           temp = Table[recordSet[i][j]-1];
+ 265   4      
+ 266   4                                    TR1 = 1;
+ 267   4      
+ 268   4                                    for(k=0; k<4000; k++)
+ 269   4                                    {delay_1ms();}
+ 270   4      
+ 271   4                                    TR1 = 0; 
+ 272   4                                         
+ 273   4                                           }               //end of inner for
+ 274   3                                      
+ 275   3                                         }                              //end of outer for                              
+ 276   2                                        
+ 277   2                                      }                                                       
+ 278   1      
+ 279   1      
+ 280   1      }           /*******************************///end playAllRecord
+ 281          
+ 282          
+ 283          void playPart(void)
+ 284          {
+ 285   1      
+ 286   1                    LCD_INIT();
+ 287   1      
+ 288   1                    if(recordQuan==0)           
+ 289   1                                      {
+ 290   2                                        LCD_Display_String("No record!!");
+ 291   2      
+ 292   2                         for (i=0;i<1000;i++){
+ 293   3                            delay_1ms();
+ 294   3                            delay_1ms();
+ 295   3                            delay_1ms();
+ 296   3                             }
+ 297   2                       }
+ 298   1                         
+ 299   1                                else
+ 300   1                                {
+ 301   2      
+ 302   2                     LCD_Display_String("Select record  \0");
+ 303   2      
+C51 COMPILER V9.03   FUNCTION                                                              06/22/2013 12:40:34 PAGE 6   
+
+ 304   2                                 TR0 = 1;
+ 305   2      
+ 306   2                     
+ 307   2                                 while(1)
+ 308   2                             {
+ 309   3                        
+ 310   3                                     if(key_value>0 && key_value<=recordQuan)
+ 311   3                                                      break;
+ 312   3                                 }
+ 313   2      
+ 314   2                                      LCD_ADDRESS(1,1);
+ 315   2                                      LCD_Display_String("Playing record \0");
+ 316   2      
+ 317   2                                  
+ 318   2                                       for(j=0; j<=recordLength[key_value-1]; j++)                    
+ 319   2                                         {
+ 320   3      
+ 321   3                           temp = Table[recordSet[key_value-1][j]-1];
+ 322   3      
+ 323   3                                    TR1 = 1;
+ 324   3      
+ 325   3                                    for(k=0; k<4000; k++)
+ 326   3                                    {delay_1ms();}
+ 327   3      
+ 328   3                                    TR1 = 0; 
+ 329   3                                         
+ 330   3                                           }               //end of inner for
+ 331   2                                      }             // end of else
+ 332   1      }
+ 333          
+ 334          
+ 335          void delete(void)
+ 336          {
+ 337   1      
+ 338   1                         LCD_INIT();
+ 339   1      
+ 340   1                     if(recordQuan==0)                  
+ 341   1                                      {
+ 342   2                                        LCD_Display_String("No record!!");
+ 343   2      
+ 344   2                         for (i=0;i<1000;i++){
+ 345   3                            delay_1ms();
+ 346   3                            delay_1ms();
+ 347   3                            delay_1ms();
+ 348   3                             }
+ 349   2                       } 
+ 350   1      
+ 351   1      
+ 352   1                                 else
+ 353   1                                 {
+ 354   2                     LCD_Display_String("Select record  \0");
+ 355   2      
+ 356   2                                 TR0 = 1;
+ 357   2      
+ 358   2                     
+ 359   2                                 while(1)
+ 360   2                             {
+ 361   3                        
+ 362   3                                     if(key_value>0 && key_value<=4)
+ 363   3                                                      break;
+ 364   3                                 }
+ 365   2      
+C51 COMPILER V9.03   FUNCTION                                                              06/22/2013 12:40:34 PAGE 7   
+
+ 366   2      
+ 367   2                     if(recordLength[key_value-1] == 0)
+ 368   2                                 {
+ 369   3                                 
+ 370   3                                       LCD_ADDRESS(1,1);
+ 371   3                                   LCD_Display_String("No record!     \0");
+ 372   3                                 
+ 373   3                                 
+ 374   3                                   }
+ 375   2      
+ 376   2                                 else
+ 377   2                                 {
+ 378   3      
+ 379   3      
+ 380   3                        for(j=0; j<recordLength[key_value-1]; j++)
+ 381   3                                    { recordSet[key_value-1][j] = 0;  }
+ 382   3      
+ 383   3                        recordLength[key_value-1] = 0;        
+ 384   3      
+ 385   3      
+ 386   3                                    LCD_ADDRESS(1,1);
+ 387   3                                    LCD_Display_String("record deleted \0");
+ 388   3                                    for (i=0;i<1000;i++)
+ 389   3                                    {
+ 390   4                            delay_1ms();
+ 391   4                            delay_1ms();
+ 392   4                            delay_1ms();
+ 393   4                                          }
+ 394   3      
+ 395   3                                   }     // end of else
+ 396   2      
+ 397   2                }  //end of else
+ 398   1      
+ 399   1      
+ 400   1      }
+ 401          
+ 402          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1473    ----
+   CONSTANT SIZE    =    164    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
